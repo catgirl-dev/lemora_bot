@@ -3,7 +3,14 @@ from peewee import SqliteDatabase, Model, IntegerField, CharField, TextField
 db: SqliteDatabase = SqliteDatabase('userdata.db')
 
 
-class User(Model):
+class Chats(Model):
+    chat_id = IntegerField()
+
+    class Meta:
+        database = db
+
+
+class Users(Model):
     chat_id: IntegerField  = IntegerField()
     user_id: IntegerField = IntegerField()
     message_id: IntegerField = IntegerField()
@@ -16,7 +23,7 @@ class User(Model):
         database = db
 
 
-class CaptchaConfig(Model):
+class CaptchaConfigs(Model):
     chat_id: IntegerField = IntegerField()
     captcha_ban_time: IntegerField = IntegerField(default=35) # минуты
     captcha_time: IntegerField = IntegerField(default=20) # часы
@@ -33,7 +40,7 @@ class Rules(Model):
         database: SqliteDatabase = db
 
 
-class WelcomeMessage(Model):
+class WelcomeMessages(Model):
     chat_id: IntegerField = IntegerField()
     welcome_message: TextField = TextField(
         default='Вы прошли капчу! Добро пожаловать!'

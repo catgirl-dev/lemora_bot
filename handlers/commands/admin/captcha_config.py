@@ -4,7 +4,7 @@ from aiogram import Router
 from aiogram.filters import Command, CommandObject
 from aiogram.types import Message
 
-from database.models import WelcomeMessage, CaptchaConfig
+from database.models import WelcomeMessages, CaptchaConfigs
 from filters.is_admin import IsAdmin
 from filters.is_group import ChatTypeFilter
 
@@ -31,7 +31,7 @@ async def change_welcome_message(message: Message, command: CommandObject):
         return
 
     try:
-        text, created = WelcomeMessage.get_or_create(
+        text, created = WelcomeMessages.get_or_create(
             chat_id=message.chat.id,
             defaults={"welcome_message": text_to_add}
         )
@@ -58,7 +58,7 @@ async def change_ban_time(message: Message, command: CommandObject):
         return
 
     try:
-        time, created = CaptchaConfig.get_or_create(chat_id=message.chat.id, defaults={"captcha_ban_time": time_to_add})
+        time, created = CaptchaConfigs.get_or_create(chat_id=message.chat.id, defaults={"captcha_ban_time": time_to_add})
 
         if time != time_to_add:
             time.captcha_ban_time = time_to_add
@@ -83,8 +83,8 @@ async def change_captcha_time(message: Message, command: CommandObject):
         return
 
     try:
-        time, created = CaptchaConfig.get_or_create(chat_id=message.chat.id,
-                                                    defaults={"captcha_time": time_to_add})
+        time, created = CaptchaConfigs.get_or_create(chat_id=message.chat.id,
+                                                     defaults={"captcha_time": time_to_add})
 
         if time != time_to_add:
             time.captcha_time = time_to_add

@@ -3,12 +3,12 @@ from configuration.logging_config import setup_logging
 
 from configuration.environment import bot, dp, scheduler
 
-from routers.base import base
-from routers.captcha.captcha_config import captcha_config
-from routers.commands import commands
-from routers.lifecycle import lifecycle
-from routers.captcha.captcha import captcha
-from routers.admin_commands import admin
+from handlers.commands.base import base
+from handlers.commands.admin.captcha_config import captcha_config
+from handlers.commands.user import commands
+from handlers.lifecycle import lifecycle
+from handlers.chat_updates import chat_updates
+from handlers.commands.admin.moderation import admin
 
 #  _._     _,-'""`-._
 # (,-.`._,'(      |\`-/|
@@ -19,7 +19,7 @@ async def main():
     setup_logging()
     scheduler.start()
 
-    dp.include_routers(base, commands, lifecycle, captcha, admin, captcha_config)
+    dp.include_routers(base, commands, lifecycle, chat_updates, admin, captcha_config)
 
     await dp.start_polling(bot)
 

@@ -8,7 +8,9 @@ class CanRestrict(BaseFilter):
     async def __call__(self, message: Message) -> bool:
         chat_member: ChatMember = await bot.get_chat_member(message.chat.id, message.from_user.id)
 
-        if not chat_member.can_restrict_members:
-            await message.reply('У вас нет прав для использования команды!')
+        if 'ChatMemberOwner' in chat_member:
+            return True
+        elif chat_member.can_restrict_members:
+            return True
+        else:
             return False
-        return True

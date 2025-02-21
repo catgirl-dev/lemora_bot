@@ -1,3 +1,4 @@
+import logging
 import random
 from datetime import datetime, timedelta
 from typing import Tuple, List, Optional
@@ -9,8 +10,8 @@ from captcha.image import ImageCaptcha
 
 from captcha_config import captcha_symbols, captcha_len, image_captcha_width, image_captcha_height
 from configuration.environment import scheduler
-from database.models import CaptchaConfig, User
-from utils.failed_captcha import failed_captcha
+from database.models import CaptchaConfigs, Users
+from utils.captcha.failed_captcha import failed_captcha
 from utils.scheduler_args import SchedulerArgs
 
 
@@ -39,7 +40,10 @@ def generate_captcha() -> Tuple[str, List[str], BufferedInputFile]:
 
 def generate_captcha_config(chat_id: int) -> None:
     """ Создание настроек капчи по умолчанию для чата, если их нет """
-    CaptchaConfig.get_or_create(chat_id=chat_id)
+    try:
+        CaptchaConfigs.get_or_create(chat_id=chat_id)
+    except Exception as e:
+        logging.error(f"Ошибка при создании настроек капчи: {e}")
 
 
 async def restrict_if_not_admin(bot: Bot, chat: Chat, user_id: int, permissions) -> None:
@@ -50,9 +54,9 @@ async def restrict_if_not_admin(bot: Bot, chat: Chat, user_id: int, permissions)
         await chat.restrict(user_id=user_id, permissions=permissions)
 
 
-def get_or_create_user(chat_id: int, user_id: int, message_id: int, captcha: str) -> Optional[User]:
+def get_or_create_user(chat_id: int, user_id: int, message_id: int, captcha: str) -> Optional[Users]:
     """ Создание или получение пользователя из базы данных и возвращение его объекта """
-    user, created = User.get_or_create(
+    user, created = Users.get_or_create(
         chat_id=chat_id,
         user_id=user_id,
         defaults={
@@ -90,7 +94,7 @@ def schedule_failed_captcha(
     )
 
 
-def save_bot_message_id(user: User, message_response: Message) -> None:
+def save_bot_message_id(user: Users, message_response: Message) -> None:
     """ Сохранение ID сообщения с капчей в базу данных для того, чтобы потом его удалить """
     user.bot_message_id = message_response.message_id
     user.save()

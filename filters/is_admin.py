@@ -2,6 +2,7 @@ from aiogram.filters import BaseFilter
 from aiogram.types import Message, ChatMemberOwner, ChatMemberAdministrator, ChatMember
 
 from configuration.environment import bot
+from utils.admins_actualization import admins
 
 # Когда человек пишет от имени чата/канала, за него сообщения отправляет Channel Bot
 CHANNEL_BOT_ID = 136817688
@@ -14,9 +15,8 @@ class IsAdmin(BaseFilter):
             # привязанного к чату, где отправлено сообщение, значит он админ
             return message.sender_chat.id in [message.chat.id, message.chat.linked_chat_id]
 
-        chat_member: ChatMember = await bot.get_chat_member(message.chat.id, message.from_user.id)
-
-        if not isinstance(chat_member, (ChatMemberOwner, ChatMemberAdministrator)):
-            await message.reply('Вы не являетесь администратором данного чата!')
+        if message.from_user.id in admins[message.chat.id]:
+            return True
+        else:
+            await message.reply("Вы не являетесь администратором чата!")
             return False
-        return True

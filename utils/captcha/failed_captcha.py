@@ -5,17 +5,17 @@ from aiogram.types import ChatMemberOwner, ChatMemberAdministrator, ChatMember
 
 from utils.scheduler_args import SchedulerArgs
 from configuration.environment import bot
-from database.models import User, CaptchaConfig
+from database.models import Users, CaptchaConfigs
 
 
 async def failed_captcha(args: SchedulerArgs):
     """ Если пользователь не успел ввести капчу, он блокируется на captcha_ban_time.
     Записи в базе данных, связанные с ним, удаляются. """
     logging.info('Пользователь не успел ввести капчу')
-    user = User.get(User.user_id == args.user_id, User.chat_id == args.chat_id)
+    user = Users.get(Users.user_id == args.user_id, Users.chat_id == args.chat_id)
     link: str = args.link
 
-    captcha_config = CaptchaConfig.get_or_create(chat_id=args.chat_id)
+    captcha_config = CaptchaConfigs.get_or_create(chat_id=args.chat_id)
     captcha_ban_time: int = int(str(captcha_config.captcha_ban_time))
 
     await bot.send_message(
