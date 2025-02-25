@@ -30,7 +30,7 @@ async def failed_captcha(args: SchedulerArgs):
         await bot.ban_chat_member(
             chat_id=args.chat_id,
             user_id=args.user_id,
-            until_date=time.time() + captcha_ban_time
+            until_date=int(time.time()) + captcha_ban_time
         )
 
     user.delete_instance()

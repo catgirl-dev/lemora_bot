@@ -9,14 +9,14 @@ from database.models import Rules
 from filters.can_kiss import CanKiss
 from filters.can_restrict import CanRestrict
 from filters.is_admin import IsAdmin
-from filters.is_group import ChatTypeFilter
+from filters.is_group import IsGroup
 from handlers.commands.user import commands
 from texts.base import kiss_message
 
 admin: Router = Router()
+admin.message.filter(IsGroup(), IsAdmin())
 
-
-@admin.message(Command('ban'), IsAdmin(), CanRestrict())
+@admin.message(Command('ban'), CanRestrict())
 async def ban_user(message: Message):
     """ Команда должна быть ответом на сообщение пользователя, которого хочет заблокировать
     администратор. """
@@ -28,7 +28,7 @@ async def ban_user(message: Message):
     await message.reply('Пользователь получил удар банхаммером!')
 
 
-@commands.message(Command('change_rules'), ChatTypeFilter(), IsAdmin())
+@commands.message(Command('change_rules'))
 async def change_rules(message: Message, command: CommandObject):
     """ Позволяет администратору установить ссылку на правила чата """
     rules_to_add: str = command.args

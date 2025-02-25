@@ -1,14 +1,16 @@
 import logging
 
+from aiogram.types import ChatMember
+
 from configuration.environment import bot
 from database.models import Chats, CaptchaConfigs
 
 admins: dict = {}
 
 async def fetch_admins(chat_id: int) -> None:
-    """ Получает список администраторов для чата и добавляет их в словарь """
+    """ Получает список администраторов и их прав на бан для чата и добавляет их в словарь """
     chat_admins = await bot.get_chat_administrators(chat_id)
-    admins[chat_id] = {admin.user.id for admin in chat_admins}
+    admins[chat_id] = {admin.user.id: admin.can_restrict_members for admin in chat_admins}
     logging.info(f'Добавлены администраторы для чата {chat_id}')
 
 
@@ -16,11 +18,13 @@ async def get_all_admins() -> None:
     """ Получает из базы данных список чатов и для него обновляет данные по администраторам """
     global admins
     admins.clear()
+
     try:
         chat_ids = [chat.chat_id for chat in Chats.select()]
     except Exception as e:
         logging.error(f"Ошибка при получении чатов из БД: {e}")
         logging.info(f"admins: {admins}")
+
     for chat_id in chat_ids:
         await fetch_admins(chat_id)
 

@@ -5,6 +5,7 @@ from aiogram.filters import Command
 from aiogram.types import Message
 
 from database.models import Rules
+from filters.is_group import IsGroup
 from texts.random_command_answers import random_answers
 
 commands: Router = Router()
@@ -16,7 +17,7 @@ async def rand(message: Message):
     await message.reply(random.choice(random_answers))
 
 
-@commands.message(Command('rules'))
+@commands.message(Command('rules'), IsGroup())
 async def send_rules(message: Message):
     """ Отправляет сообщение со ссылкой на правила чата """
     rules = Rules.get_or_none(chat_id=message.chat.id)

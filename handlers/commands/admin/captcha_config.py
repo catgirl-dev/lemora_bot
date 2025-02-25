@@ -6,11 +6,12 @@ from aiogram.types import Message
 
 from database.models import WelcomeMessages, CaptchaConfigs
 from filters.is_admin import IsAdmin
-from filters.is_group import ChatTypeFilter
+from filters.is_group import IsGroup
 
 captcha_config = Router()
+captcha_config.message.filter(IsGroup(), IsAdmin())
 
-@captcha_config.message(Command('change_welcome'), ChatTypeFilter(), IsAdmin())
+@captcha_config.message(Command('change_welcome'))
 async def change_welcome_message(message: Message, command: CommandObject):
     """ Устанавливает текст приветственного сообщения для чата.
     Поддержка переносов на новую строку работает только когда админ пишет команду
@@ -49,13 +50,32 @@ async def change_welcome_message(message: Message, command: CommandObject):
                             'Попробуйте позже или свяжитесь с автором бота.')
 
 
-@captcha_config.message(Command('change_ban_time'), ChatTypeFilter(), IsAdmin())
+@captcha_config.message(Command('change_ban_time'))
 async def change_ban_time(message: Message, command: CommandObject):
     time_to_add = command.args
+
     if not time_to_add:
-        await message.reply('Введите время бана при неправильно введённой капче в секундах. Например: /change_ban_time 60.')
-        # TODO: сделать так, чтобы нельзя было подсунуть буквы или флот а ещё ограничение не менее 35 секунд и не более не помню сколько
+        await message.reply(
+            'Введите время бана при неправильно введённой капче в секундах. Например: /change_ban_time 60.'
+            'Если вы не хотите, чтобы пользователь блокировался перманентно, выберите число в диапазоне '
+            'от 30 до 31622400.')
         return
+
+    if not time_to_add.isdigit() or int(time_to_add) == 0:
+        await message.reply('Ошибка. Аргумент команды должен являться целым положительным числом больше нуля! '
+                            'Например: /change_ban_time 60')
+        return
+
+    is_confirmed = time_to_add[0] == '!'
+    if time_to_add[0] == '!':
+        time_to_add = time_to_add[1:]
+
+    if time_to_add not in (30, 31622400) and not is_confirmed:
+        await message.reply('Вы ввели число менее 30 секунд или более 31622400. Так пользователь будет блокироваться перманентно.'
+                            'Это специфика Telegram.'
+                            'Если вы хотите этого, введите команду ещё раз, поставив перед числом восклицательный знак.'
+                            'Например: /change_ban_time !20. Если это не то, что вы планировали, выберите число в диапазоне'
+                            'от 30 до 31622400.')
 
     try:
         time, created = CaptchaConfigs.get_or_create(chat_id=message.chat.id, defaults={"captcha_ban_time": time_to_add})
@@ -73,15 +93,20 @@ async def change_ban_time(message: Message, command: CommandObject):
                             'Попробуйте позже или свяжитесь с автором бота.')
 
 
-@captcha_config.message(Command('change_captcha_time'), ChatTypeFilter(), IsAdmin())
+@captcha_config.message(Command('change_captcha_time'))
 async def change_captcha_time(message: Message, command: CommandObject):
     time_to_add = command.args
     if not time_to_add:
         await message.reply(
             'Введите время на прохождение капчи в часах. Например: /change_captcha_time 2.')
-        # TODO: сделать так, чтобы нельзя было подсунуть буквы или флот, тоже ограничить, типо не дольше 500 часов
         return
 
+    if not time_to_add.isdigit() or int(time_to_add) == 0:
+        await message.reply('Ошибка. Аргумент команды должен являться целым положительным числом больше нуля и меньше 120.'
+                            'Например: /change_captcha_time 40')
+
+    if int(time_to_add) not in (1, 120):
+        await message.reply('Ошибка. Выберите число в диапазоне от 1 до 120 часов.')
     try:
         time, created = CaptchaConfigs.get_or_create(chat_id=message.chat.id,
                                                      defaults={"captcha_time": time_to_add})
