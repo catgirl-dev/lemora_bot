@@ -1,16 +1,18 @@
 import logging
 import random
+import time
 from datetime import datetime, timedelta
 from typing import Tuple, List, Optional
 
 from aiogram import Bot
 from aiogram.types import BufferedInputFile, Chat, ChatMember, ChatMemberOwner, \
-    ChatMemberAdministrator, Message, InlineKeyboardMarkup
+    ChatMemberAdministrator, Message, InlineKeyboardMarkup, CallbackQuery
 from captcha.image import ImageCaptcha
 
 from captcha_config import captcha_symbols, captcha_len, image_captcha_width, image_captcha_height
-from configuration.environment import scheduler
-from database.models import CaptchaConfigs, Users
+from configuration.environment import scheduler, bot
+from database.models import CaptchaConfigs, Users, WelcomeMessages
+from utils.admins_actualization import admins
 from utils.captcha.failed_captcha import failed_captcha
 from utils.scheduler_args import SchedulerArgs
 
@@ -98,3 +100,67 @@ def save_bot_message_id(user: Users, message_response: Message) -> None:
     """ Сохранение ID сообщения с капчей в базу данных для того, чтобы потом его удалить """
     user.bot_message_id = message_response.message_id
     user.save()
+
+
+async def handle_correct_captcha(callback: CallbackQuery, user, link: str, message_id: int):
+    """ Обработка успешное прохождение капчи """
+    logging.info(f'Введённая верно капча в чате {callback.chat.id} пользователем {callback.from_user.id}')
+
+    # Бот не может ограничить в правах админа или овнера чата
+    if callback.from_user.id not in admins:
+        # Анмут человека прошедшего капчу
+        await callback.message.chat.restrict(
+            user_id=callback.from_user.id,
+            permissions=(
+                await bot.get_chat(callback.message.chat.id)).permissions)
+
+        welcome_message = WelcomeMessages.get_or_none(chat_id=callback.message.chat.id)
+        welcome_message_text: str = str(welcome_message.welcome_message)
+
+        await bot.send_message(
+            callback.message.chat.id,
+            f'{link}, {welcome_message_text}',
+            reply_to_message_id=message_id,
+            parse_mode="HTML",
+            disable_web_page_preview=True
+        )
+
+        user.delete_instance()
+        logging.info('База данных очищена')
+
+
+async def handle_failed_captcha(callback: CallbackQuery, user, link: str, message_id: int):
+    """ Обработка непрохождения капчи """
+    logging.info(f'Введённая неверно капча в чате {callback.chat.id} пользователем {callback.from_user.id}')
+    # У пользователя 3 попытки на то, чтобы пройти капчу
+    if int(user.attempt_counter) < 2:
+        user.attempt_counter = user.attempt_counter + 1
+        user.answer = ''
+        user.save()
+        await callback.answer('Не верно! Попробуйте снова!')
+        return
+
+    if callback.from_user.id not in admins:
+        await bot.send_message(
+            callback.message.chat.id,
+            f'{link}, Вы не прошли капчу! Попробуйте снова.',
+            reply_to_message_id=message_id,
+            parse_mode="HTML",
+            disable_web_page_preview=True
+        )
+
+        captcha_config = CaptchaConfigs.get_or_create(chat_id=callback.message.chat.id)
+        captcha_ban_time = int(str(captcha_config.captcha_ban_time))
+
+        await bot.ban_chat_member(
+            chat_id=callback.message.chat.id,
+            user_id=callback.from_user.id,
+            until_date=int(time.time()) + captcha_ban_time
+        )
+
+        await callback.message.delete()
+        scheduler.remove_job(str(callback.message.chat.id) + '_' +
+                             str(callback.from_user.id) + '_' +
+                             str(message_id))
+        user.delete_instance()
+        logging.info('База данных очищена')

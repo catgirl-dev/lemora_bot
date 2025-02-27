@@ -1,21 +1,20 @@
 import logging
-import time
 
 from aiogram import F, Router, Bot
 from aiogram.filters import ChatMemberUpdatedFilter, KICKED, LEFT, RESTRICTED, MEMBER, \
     ADMINISTRATOR, CREATOR, IS_NOT_MEMBER
-from aiogram.types import Message, ChatMemberOwner, ChatMemberAdministrator, CallbackQuery, \
-    ChatMemberBanned, ChatMember, ChatMemberUpdated
+from aiogram.types import Message, CallbackQuery, \
+    ChatMemberUpdated
 
 from captcha_config import muted_permissions, captcha_symbols
 from configuration.environment import bot, scheduler
-from database.models import Users, WelcomeMessages, CaptchaConfigs, Chats
+from database.models import Users, CaptchaConfigs
 from keyboards.captcha_inline_keyboard import generate_captcha_keyboard
 from texts.base import help_message_text
 from utils.admins_actualization import admins, add_chat_to_db, remove_chat_id_from_db
 from utils.captcha.captcha_tools import generate_captcha, generate_captcha_config, \
     restrict_if_not_admin, get_or_create_user, send_captcha_message, schedule_failed_captcha, \
-    save_bot_message_id
+    save_bot_message_id, handle_correct_captcha, handle_failed_captcha
 
 chat_updates: Router = Router()
 
@@ -65,6 +64,7 @@ async def bot_added_as_admin(event: ChatMemberUpdated):
     )
 )
 async def bot_added_as_member(event: ChatMemberUpdated, bot: Bot):
+    """ Обработка события, когда бота добавили, как простого участника """
     chat_info = await bot.get_chat(event.chat.id)
     if chat_info.permissions.can_send_messages:
         generate_captcha_config(event.chat.id)
@@ -78,7 +78,7 @@ async def bot_added_as_member(event: ChatMemberUpdated, bot: Bot):
 
 @chat_updates.chat_member(F.new_chat_member.status == "kicked")
 async def bot_removed_from_chat(event: ChatMemberUpdated):
-    """ Обработчик события удаления бота из чата """
+    """ Обработка события удаления бота из чата """
     if event.old_chat_member.user.id == event.bot.id:
         logging.info(f"Бот был удалён из чата {event.chat.id}")
         await remove_chat_id_from_db(event.chat.id)
@@ -93,14 +93,24 @@ async def bot_removed_from_chat(event: ChatMemberUpdated):
     )
 )
 async def admin_promoted(event: ChatMemberUpdated):
-    """ Обрабатывает повышение до администратора """
-    chat_id = event.chat.id
+    """ Обработка повышения до администратора """
+    if event.chat.id not in admins:
+        admins[event.chat.id] = {}
 
-    if chat_id not in admins:
-        admins.setdefault(chat_id, set())
-    admins[chat_id].add(event.new_chat_member.user.id)
+    admins[event.chat.id][event.new_chat_member.user.id] = event.new_chat_member.can_restrict_members
 
     logging.info(f"{event.new_chat_member.user.first_name} был(а) повышен(а) до администратора")
+
+
+@chat_updates.chat_member(ChatMemberUpdatedFilter())
+async def admin_rights_updated(event: ChatMemberUpdated):
+    """ Обработка изменения прав пользователя на бан """
+    if event.chat.id not in admins:
+        admins[event.chat.id] = {}
+
+    admins[event.chat.id][event.new_chat_member.user.id] = event.new_chat_member.can_restrict_members
+
+    logging.info(f"Права пользователя {event.new_chat_member.user.first_name} были изменены")
 
 
 @chat_updates.chat_member(
@@ -112,10 +122,12 @@ async def admin_promoted(event: ChatMemberUpdated):
     )
 )
 async def admin_demoted(event: ChatMemberUpdated):
-    """ Обрабатывает понижение администратора до обычного пользователя """
+    """ Обработка понижения администратора до обычного пользователя """
     chat_id = event.chat.id
+    user_id = event.new_chat_member.user.id
 
-    admins[chat_id].discard(event.new_chat_member.user.id)
+    if chat_id in admins and user_id in admins[chat_id]:
+        del admins[chat_id][user_id]
 
     logging.info(f"{event.new_chat_member.user.first_name} был(а) понижен(а) с роли администратора")
 
@@ -157,7 +169,6 @@ async def new_chat_member(message: Message):
 @chat_updates.callback_query()
 async def captcha_inline_callback(callback: CallbackQuery):
     """ Обработка нажатий пользователем на кнопки капчи """
-
     # Чтобы кнопки мог нажимать только тот, кому предназначается капча
     user = Users.get_or_none(
         Users.user_id == callback.from_user.id,
@@ -174,11 +185,7 @@ async def captcha_inline_callback(callback: CallbackQuery):
 
     link: str = callback.from_user.mention_html()
 
-    # TODO: Выглядит не очень, надо бы разобраться
-    answer_buffer: str = user_answer + callback.data
-    user.answer = answer_buffer
-    user.save()
-    user_answer = answer_buffer
+    user_answer: str = f"{user_answer}{callback.data}"
 
     if len(user_answer) < len(user_captcha):
         await callback.answer('')
@@ -187,84 +194,10 @@ async def captcha_inline_callback(callback: CallbackQuery):
     message_id: int = int(str(user.message_id))
 
     if user_answer == user_captcha:
-        logging.info('Введённая верно капча')
-
-        chat_member: ChatMember = await bot.get_chat_member(
-            callback.message.chat.id,
-            callback.from_user.id
-        )
-
-        # Анмут человека прошедшего капчу
-        if not isinstance(
-                chat_member, (ChatMemberOwner, ChatMemberAdministrator)):
-            await callback.message.chat.restrict(
-                user_id=callback.from_user.id,
-                permissions=(
-                    await bot.get_chat(callback.message.chat.id)).permissions)
-
-        welcome_message = WelcomeMessages.get_or_none(chat_id=callback.message.chat.id)
-        welcome_message_text: str = str(welcome_message.welcome_message)
-
-        await bot.send_message(
-            callback.message.chat.id,
-            f'{link}, {welcome_message_text}',
-            reply_to_message_id=message_id,
-            parse_mode="HTML",
-            disable_web_page_preview=True
-            )
-
-        await callback.message.delete()
-        scheduler.remove_job(
-            str(callback.message.chat.id) + '_' +
-            str(callback.from_user.id) + '_' +
-            str(message_id)
-        )
-
-        user.delete_instance()
-        logging.info('База данных очищена')
+        await handle_correct_captcha(callback, user, link, message_id)
 
     else:
-        logging.info('Не пройденная пользователем капча')
-
-        # У пользователя 3 попытки на то, чтобы пройти капчу
-        if int(user.attempt_counter) < 2:
-            user.attempt_counter = user.attempt_counter + 1
-            user.answer = ''
-            user.save()
-            await callback.answer('Не верно! Попробуйте снова!')
-            return
-
-        chat_member: ChatMember = await bot.get_chat_member(
-            callback.message.chat.id,
-            callback.from_user.id
-        )
-
-        if not isinstance(chat_member, ChatMemberBanned):
-            await bot.send_message(
-                callback.message.chat.id,
-                f'{link}, Вы не прошли капчу! Попробуйте снова.',
-                reply_to_message_id=message_id,
-                parse_mode="HTML",
-                disable_web_page_preview=True
-            )
-
-            captcha_config = CaptchaConfigs.get_or_create(chat_id=callback.message.chat.id)
-            captcha_ban_time = int(str(captcha_config.captcha_ban_time))
-
-            if not isinstance(
-                    chat_member, (ChatMemberAdministrator, ChatMemberOwner)):
-                await bot.ban_chat_member(
-                    chat_id=callback.message.chat.id,
-                    user_id=callback.from_user.id,
-                    until_date=time.time() + captcha_ban_time
-                )
-
-            await callback.message.delete()
-            scheduler.remove_job(str(callback.message.chat.id) + '_' +
-                                 str(callback.from_user.id) + '_' +
-                                 str(message_id))
-            user.delete_instance()
-            logging.info('База данных очищена')
+        await handle_failed_captcha(callback, user, link, message_id)
 
 
 @chat_updates.message(F.content_type == "left_chat_member")
