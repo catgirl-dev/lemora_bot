@@ -84,7 +84,7 @@ async def send_captcha_message(message: Message, captcha_image, keyboard: Inline
 def schedule_failed_captcha(
         chat_id: int, user_id: int, message_id: int, link: str, captcha_time: int
 ) -> None:
-    """Запуск задачи на бан пользователя, если капча не пройдена им за отведённое время """
+    """ Запуск задачи на бан пользователя, если капча не пройдена им за отведённое время """
     args = SchedulerArgs(chat_id, user_id, message_id, link)
 
     scheduler.add_job(
@@ -103,8 +103,8 @@ def save_bot_message_id(user: Users, message_response: Message) -> None:
 
 
 async def handle_correct_captcha(callback: CallbackQuery, user, link: str, message_id: int):
-    """ Обработка успешное прохождение капчи """
-    logging.info(f'Введённая верно капча в чате {callback.chat.id} пользователем {callback.from_user.id}')
+    """ Обработка успешного прохождение капчи """
+    logging.info(f'Введённая верно капча в чате {callback.message.chat.id} пользователем {callback.from_user.id}')
 
     # Бот не может ограничить в правах админа или овнера чата
     if callback.from_user.id not in admins:
@@ -114,7 +114,7 @@ async def handle_correct_captcha(callback: CallbackQuery, user, link: str, messa
             permissions=(
                 await bot.get_chat(callback.message.chat.id)).permissions)
 
-        welcome_message = WelcomeMessages.get_or_none(chat_id=callback.message.chat.id)
+        welcome_message, _ = WelcomeMessages.get_or_create(chat_id=callback.message.chat.id)
         welcome_message_text: str = str(welcome_message.welcome_message)
 
         await bot.send_message(
@@ -128,10 +128,12 @@ async def handle_correct_captcha(callback: CallbackQuery, user, link: str, messa
         user.delete_instance()
         logging.info('База данных очищена')
 
+        await callback.message.delete()
+
 
 async def handle_failed_captcha(callback: CallbackQuery, user, link: str, message_id: int):
     """ Обработка непрохождения капчи """
-    logging.info(f'Введённая неверно капча в чате {callback.chat.id} пользователем {callback.from_user.id}')
+    logging.info(f'Введённая неверно капча в чате {callback.message.chat.id} пользователем {callback.from_user.id}')
     # У пользователя 3 попытки на то, чтобы пройти капчу
     if int(user.attempt_counter) < 2:
         user.attempt_counter = user.attempt_counter + 1
@@ -149,7 +151,7 @@ async def handle_failed_captcha(callback: CallbackQuery, user, link: str, messag
             disable_web_page_preview=True
         )
 
-        captcha_config = CaptchaConfigs.get_or_create(chat_id=callback.message.chat.id)
+        captcha_config, _ = CaptchaConfigs.get_or_create(chat_id=callback.message.chat.id)
         captcha_ban_time = int(str(captcha_config.captcha_ban_time))
 
         await bot.ban_chat_member(

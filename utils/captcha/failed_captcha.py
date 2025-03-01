@@ -19,11 +19,10 @@ async def failed_captcha(args: SchedulerArgs):
     captcha_ban_time: int = int(str(captcha_config.captcha_ban_time))
 
     await bot.send_message(
-        args.chat_id, f'{link}, не успел(а) пройти капчу! Он(а) может присоединиться к чату'
-                      f'через {captcha_ban_time} секунд и попробовать вновь.',
-        reply_to_message_id=args.message_id, parse_mode="HTML",
-        disable_web_page_preview=True
-    )
+        args.chat_id, f'[{link}](tg://user?id={args.user_id}), не успел(а) пройти капчу! '
+                      f'Он(а) может присоединиться к чату через *{captcha_ban_time}* секунд и попробовать вновь.',
+        reply_to_message_id=args.message_id, parse_mode="Markdown",
+        disable_web_page_preview=True)
 
     chat_member: ChatMember = await bot.get_chat_member(args.chat_id, args.user_id)
     if not isinstance(chat_member, (ChatMemberOwner, ChatMemberAdministrator)):

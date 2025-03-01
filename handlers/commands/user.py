@@ -23,7 +23,7 @@ async def send_rules(message: Message):
     rules = Rules.get_or_none(chat_id=message.chat.id)
     if not rules:
         await message.reply('В базе данных нет ссылки на правила вашего чата.'
-                            'Вы можете добавить их командой /change_rules.'
+                            'Вы можете добавить их командой /change_rules. '
                             'Например: /change_rules https://telegra.ph/Pravila')
         return
 

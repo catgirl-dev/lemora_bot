@@ -15,7 +15,7 @@ class IsAdmin(BaseFilter):
             # привязанного к чату, где отправлено сообщение, значит он админ
             return message.sender_chat.id in [message.chat.id, message.chat.linked_chat_id]
 
-        if message.from_user.id in admins[message.chat.id]:
+        if message.chat.id in admins and message.from_user.id in admins[message.chat.id]:
             return True
         else:
             await message.reply("Вы не являетесь администратором чата!")

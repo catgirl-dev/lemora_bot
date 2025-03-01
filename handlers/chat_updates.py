@@ -95,18 +95,25 @@ async def bot_removed_from_chat(event: ChatMemberUpdated):
 async def admin_promoted(event: ChatMemberUpdated):
     """ Обработка повышения до администратора """
     if event.chat.id not in admins:
-        admins[event.chat.id] = {}
+        admins[event.chat.id][event.new_chat_member.user.id] = {}
+
+    if event.new_chat_member.status == 'creator':
+        admins[event.chat.id][event.new_chat_member.user.id] = {True}
+        return
 
     admins[event.chat.id][event.new_chat_member.user.id] = event.new_chat_member.can_restrict_members
 
     logging.info(f"{event.new_chat_member.user.first_name} был(а) повышен(а) до администратора")
 
 
-@chat_updates.chat_member(ChatMemberUpdatedFilter())
+@chat_updates.chat_member(ChatMemberUpdatedFilter(member_status_changed=True))
 async def admin_rights_updated(event: ChatMemberUpdated):
     """ Обработка изменения прав пользователя на бан """
     if event.chat.id not in admins:
         admins[event.chat.id] = {}
+
+    if event.new_chat_member.status == 'creator':
+        return
 
     admins[event.chat.id][event.new_chat_member.user.id] = event.new_chat_member.can_restrict_members
 
@@ -151,13 +158,12 @@ async def new_chat_member(message: Message):
         captcha="".join(captcha_text)
     )
 
-    keyboard = generate_captcha_keyboard(captcha_symbols)
+    keyboard = generate_captcha_keyboard(mixed_captcha)
 
     message_response = await send_captcha_message(message, captcha_image, keyboard)
     save_bot_message_id(user, message_response)
 
-    captcha_config = CaptchaConfigs.get_or_create(chat_id=message.chat.id)
-
+    captcha_config, _ = CaptchaConfigs.get_or_create(chat_id=message.chat.id)
     captcha_time = int(str(captcha_config.captcha_time))
 
     link = message.from_user.mention_html()
@@ -180,24 +186,22 @@ async def captcha_inline_callback(callback: CallbackQuery):
         await callback.answer('Эта капча не для тебя!')
         return
 
+    user.answer = (user.answer or "") + callback.data
+    user.save()
+
     user_answer: str = str(user.answer)
-    user_captcha: str = str(user.chat_updates)
-
+    user_captcha: str = str(user.captcha)
     link: str = callback.from_user.mention_html()
-
-    user_answer: str = f"{user_answer}{callback.data}"
-
-    if len(user_answer) < len(user_captcha):
-        await callback.answer('')
-        return
-
     message_id: int = int(str(user.message_id))
 
-    if user_answer == user_captcha:
+    if user_answer == user_captcha:  # Верная капча
         await handle_correct_captcha(callback, user, link, message_id)
 
-    else:
+    elif len(user_answer) >= len(user_captcha):  # Неверная капча
         await handle_failed_captcha(callback, user, link, message_id)
+
+    else:  # Капча ещё не введена полностью
+        await callback.answer('')
 
 
 @chat_updates.message(F.content_type == "left_chat_member")

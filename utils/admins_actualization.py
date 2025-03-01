@@ -1,17 +1,23 @@
 import logging
 
-from aiogram.types import ChatMember
-
 from configuration.environment import bot
-from database.models import Chats, CaptchaConfigs
+from database.models import Chats
 
 admins: dict = {}
 
 async def fetch_admins(chat_id: int) -> None:
-    """ Получает список администраторов и их прав на бан для чата и добавляет их в словарь """
+    """ Получает список администраторов чата и их прав на бан для чата и добавляет их в словарь """
     chat_admins = await bot.get_chat_administrators(chat_id)
-    admins[chat_id] = {admin.user.id: admin.can_restrict_members for admin in chat_admins}
-    logging.info(f'Добавлены администраторы для чата {chat_id}')
+
+    for admin in chat_admins:
+        if admin.status == 'creator':
+            admins[chat_id] = {admin.user.id: True}
+            continue
+        elif admin.user.is_bot:
+            continue
+        else: admins[chat_id] = {admin.user.id: admin.can_restrict_members}
+
+    logging.info(f'Актуализированы администраторы для чата {chat_id}')
 
 
 async def get_all_admins() -> None:
