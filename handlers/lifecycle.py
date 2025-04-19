@@ -16,7 +16,6 @@ async def on_startup():
     await get_all_admins()
 
 
-
 @dp.shutdown()
 async def on_shutdown():
     db.close()

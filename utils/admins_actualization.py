@@ -3,9 +3,10 @@ import logging
 from configuration.environment import bot
 from database.models import Chats
 
+CHANNEL_BOT_ID = 136817688
 admins: dict = {}
 
-async def fetch_admins(chat_id: int) -> None:
+async def fetch_admins(chat_id: int, sender_chat_id: int, linked_chat_id: int) -> None:
     """ Получает список администраторов чата и их прав на бан для чата и добавляет их в словарь """
     chat_admins = await bot.get_chat_administrators(chat_id)
 
@@ -14,6 +15,10 @@ async def fetch_admins(chat_id: int) -> None:
             admins[chat_id] = {admin.user.id: True}
             continue
         elif admin.user.is_bot:
+            if admin.user.id == CHANNEL_BOT_ID and sender_chat_id in [chat_id, linked_chat_id]:
+                admins[chat_id] = {admin.user.id: True}
+
+
             continue
         else: admins[chat_id] = {admin.user.id: admin.can_restrict_members}
 
@@ -33,6 +38,8 @@ async def get_all_admins() -> None:
 
     for chat_id in chat_ids:
         await fetch_admins(chat_id)
+
+    logging.info(admins)
 
 
 async def add_chat_to_db(chat_id: int):

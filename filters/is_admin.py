@@ -1,7 +1,6 @@
 from aiogram.filters import BaseFilter
-from aiogram.types import Message, ChatMemberOwner, ChatMemberAdministrator, ChatMember
+from aiogram.types import Message
 
-from configuration.environment import bot
 from utils.admins_actualization import admins
 
 # Когда человек пишет от имени чата/канала, за него сообщения отправляет Channel Bot
