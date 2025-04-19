@@ -14,9 +14,9 @@ from handlers.commands.user import commands
 from texts.base import kiss_message
 
 admin: Router = Router()
-admin.message.filter(IsGroup(), IsAdmin())
+admin.message.filter(IsGroup())
 
-@admin.message(Command('ban'), CanRestrict())
+@admin.message(Command('ban'), CanRestrict(), IsAdmin())
 async def ban_user(message: Message):
     """ Команда должна быть ответом на сообщение пользователя, которого хочет заблокировать
     администратор. """
@@ -28,7 +28,7 @@ async def ban_user(message: Message):
     await message.reply('Пользователь получил удар банхаммером!')
 
 
-@commands.message(Command('change_rules'))
+@commands.message(Command('change_rules'), IsAdmin())
 async def change_rules(message: Message, command: CommandObject):
     """ Позволяет администратору установить ссылку на правила чата """
     rules_to_add: str = command.args
@@ -36,7 +36,8 @@ async def change_rules(message: Message, command: CommandObject):
     if not rules_to_add:
         await message.reply(
             'Пожалуйста, вставьте ссылку после команды! '
-            'Например: /change_rules https://telegra.ph/Pravila'
+            'Например: `/change_rules https://telegra.ph/Pravila`',
+            parse_mode="Markdown"
         )
         return
 
@@ -57,7 +58,7 @@ async def change_rules(message: Message, command: CommandObject):
                            'Попробуйте позже или свяжитесь с автором бота.')
 
 
-@commands.message(Command('kiss'), CanKiss())
+@commands.message(Command('kiss'), CanKiss(), IsAdmin())
 async def kiss_user(message: Message):
     """ Шуточная команда, только для меня :) """
     if message.from_user.id != KISSER_ID:

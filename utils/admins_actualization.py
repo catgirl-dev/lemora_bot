@@ -1,26 +1,31 @@
 import logging
 
+from aiogram.enums import ChatMemberStatus
+
 from configuration.environment import bot
 from database.models import Chats
 
 CHANNEL_BOT_ID = 136817688
-admins: dict = {}
+admins: dict[int, dict[int, bool]] = {}
 
-async def fetch_admins(chat_id: int, sender_chat_id: int, linked_chat_id: int) -> None:
+async def fetch_admins(chat_id: int) -> None:
     """ Получает список администраторов чата и их прав на бан для чата и добавляет их в словарь """
     chat_admins = await bot.get_chat_administrators(chat_id)
+    admins.setdefault(chat_id, {})
 
     for admin in chat_admins:
-        if admin.status == 'creator':
-            admins[chat_id] = {admin.user.id: True}
+        if admin.status == ChatMemberStatus.CREATOR:
+            admins[chat_id][admin.user.id] = True
             continue
+
         elif admin.user.is_bot:
-            if admin.user.id == CHANNEL_BOT_ID and sender_chat_id in [chat_id, linked_chat_id]:
-                admins[chat_id] = {admin.user.id: True}
+            if admin.user.id == CHANNEL_BOT_ID:
+                # Если человек пишет от имени чата, и айди чата, в котором он пишет, совпадает с айди
+                # чата, от которого он пишет, он является админом. Дописать функционал
+                continue
 
-
-            continue
-        else: admins[chat_id] = {admin.user.id: admin.can_restrict_members}
+        else:
+            admins[chat_id][admin.user.id] = admin.can_restrict_members
 
     logging.info(f'Актуализированы администраторы для чата {chat_id}')
 
