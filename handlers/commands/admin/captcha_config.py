@@ -71,12 +71,13 @@ async def change_ban_time(message: Message, command: CommandObject):
     if time_to_add[0] == '!':
         time_to_add = time_to_add[1:]
 
-    if time_to_add not in (30, 31622400) and not is_confirmed:
+    if not (30 <= int(time_to_add) <= 31622400) and not is_confirmed:
         await message.reply('Вы ввели число менее 30 секунд или более 31622400. Так пользователь будет блокироваться перманентно.'
                             'Это специфика Telegram.'
                             'Если вы хотите этого, введите команду ещё раз, поставив перед числом восклицательный знак.'
                             'Например: `/change_ban_time !20`. Если это не то, что вы планировали, выберите число в диапазоне'
                             'от 30 до 31622400.', parse_mode="Markdown")
+        return
 
     try:
         time, created = CaptchaConfigs.get_or_create(chat_id=message.chat.id, defaults={"captcha_ban_time": time_to_add})
@@ -107,8 +108,9 @@ async def change_captcha_time(message: Message, command: CommandObject):
         await message.reply('Ошибка. Аргумент команды должен являться целым положительным числом больше нуля и меньше 120.'
                             'Например: `/change_captcha_time 40`', parse_mode="Markdown")
 
-    if int(time_to_add) not in (1, 120):
+    if not (1 <= int(time_to_add) <= 120):
         await message.reply('Ошибка. Выберите число в диапазоне от 1 до 120 часов.')
+        return
     try:
         time, created = CaptchaConfigs.get_or_create(chat_id=message.chat.id,
                                                      defaults={"captcha_time": time_to_add})
