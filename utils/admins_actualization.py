@@ -10,7 +10,10 @@ admins: dict[int, dict[int, bool]] = {}
 
 async def fetch_admins(chat_id: int) -> None:
     """ Получает список администраторов чата и их прав на бан для чата и добавляет их в словарь """
-    chat_admins = await bot.get_chat_administrators(chat_id)
+    try:
+        chat_admins = await bot.get_chat_administrators(chat_id)
+    except Exception as e:
+        logging.error(f'Ошибка при попытке получить список администраторов: {e}. Для чата {chat_id}')
     admins.setdefault(chat_id, {})
 
     for admin in chat_admins:
@@ -31,20 +34,26 @@ async def fetch_admins(chat_id: int) -> None:
 
 
 async def get_all_admins() -> None:
-    """ Получает из базы данных список чатов и для него обновляет данные по администраторам """
+    """ Обновляет данные администраторов для всех чатов из БД """
     global admins
     admins.clear()
+    chat_ids = []
 
     try:
         chat_ids = [chat.chat_id for chat in Chats.select()]
     except Exception as e:
         logging.error(f"Ошибка при получении чатов из БД: {e}")
-        logging.info(f"admins: {admins}")
+        logging.info(f"Текущие admins: {admins}")
+        return
+
+    if not chat_ids:
+        logging.info("В базе данных нет чатов для обработки.")
+        return
 
     for chat_id in chat_ids:
         await fetch_admins(chat_id)
 
-    logging.info(admins)
+    logging.info(f"Обновленные данные администраторов: {admins}")
 
 
 async def add_chat_to_db(chat_id: int):
