@@ -14,6 +14,7 @@ async def fetch_admins(chat_id: int) -> None:
         chat_admins = await bot.get_chat_administrators(chat_id)
     except Exception as e:
         logging.error(f'Ошибка при попытке получить список администраторов: {e}. Для чата {chat_id}')
+        chat_admins = []
     admins.setdefault(chat_id, {})
 
     for admin in chat_admins:
