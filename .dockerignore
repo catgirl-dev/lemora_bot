@@ -1,0 +1,52 @@
+# Игнорируем системные файлы и директории
+.git
+.gitignore
+.github/
+.DS_Store
+*.swp
+*.swo
+
+# Исключаем виртуальные окружения и зависимости Python
+venv/
+env/
+.venv/
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+.pytest_cache/
+
+# Игнорируем файлы IDE и редакторов
+.vscode/
+.idea/
+*.iml
+
+# Пропускаем локальные настройки и переменные окружения
+.env
+.env.local
+.env.dev
+.env.prod
+
+# Исключаем логи и временные файлы
+*.log
+*.sqlite
+*.db
+*.cache
+
+# Игнорируем документацию и тестовые данные
+docs/
+tests/
+test/
+coverage.xml
+htmlcov/
+
+# Пропускаем медиа-файлы и статику (если не нужны в контейнере)
+uploads/
+media/
+static/
+
+# Исключаем файлы CI/CD и Docker-конфигурации (если не требуются в образе)
+docker-compose.yml
+docker-compose.*.yml
+.dockerignore
+Dockerfile*
