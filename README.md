@@ -68,11 +68,18 @@ cd lemora_bot
 
 ### Установка зависимостей
 Перед установкой зависимостей рекомендуется использовать виртуальное окружение.
+#### Linux/MacOS
 ```sh
-python -m venv venv # создание виртуального окружения
-source venv/bin/activate # активация виртуального окружения для Linux/macOS
-venv\Scripts\activate # активация виртуального окружения для Windows
-pip install -r requirements.txt # установка зависимостей
+python -m venv venv              # создание виртуального окружения
+source venv/bin/activate         # активация окружения
+pip install -r requirements.txt  # установка зависимостей
+```
+
+#### Windows
+```sh
+python -m venv venv               # создание виртуального окружения
+venv\Scripts\activate             # активация окружения
+pip install -r requirements.txt   # установка зависимостей
 ```
 
 ### Конфигурация

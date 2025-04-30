@@ -1,4 +1,6 @@
 import asyncio
+import logging
+
 from configuration.logging_config import setup_logging
 
 from configuration.environment import bot, dp, scheduler
@@ -20,7 +22,7 @@ async def main():
     scheduler.start()
 
     dp.include_routers(base, commands, lifecycle, chat_updates, admin, captcha_config)
-
+    logging.info("Бот запущен...")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
